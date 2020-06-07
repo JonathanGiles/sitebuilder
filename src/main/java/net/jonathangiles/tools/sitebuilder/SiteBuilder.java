@@ -29,7 +29,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * Reads in all index.xml files and creates a static index.html file from it and the header and footer files.
  */
 public abstract class SiteBuilder {
-    private static final File OUTPUT_DIR = new File("output");
+    private static final String OUTPUT_PATH = "output";
+    private static final File OUTPUT_DIR = new File(OUTPUT_PATH);
 
     private final ClassLoader loader;
 
@@ -156,16 +157,27 @@ public abstract class SiteBuilder {
             allPostsMap.put(post.getSlug(), post);
 
             String html = templates.get("post");
-            html = fillTemplate(html, "relativeToRoot", "../../");
-            html = fillTemplate(html, "title", post.getTitle());
-            html = fillTemplate(html, "content", post.getContent());
-            html = fillTemplate(html, "date", post.getDate().toString());
+
+            for (Map.Entry<String, String> property : getPostProperties(post).entrySet()) {
+                html = fillTemplate(html, property.getKey(), property.getValue());
+            }
 
             relativePath.toFile().getParentFile().mkdirs();
             writeToFile(Paths.get(relativePath.getParent().toString(), "index.html"), html);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    protected Map<String, String> getPostProperties(Post post) {
+        Map<String, String> properties = new HashMap<>();
+
+        properties.put("title", post.getTitle());
+        properties.put("content", post.getContent());
+        properties.put("date", post.getDate().toString());
+        properties.put("path", createRelativePath(post.getRelativePath().getParent()));
+
+        return properties;
     }
 
     // --------------------------------------------------------------------------
@@ -183,17 +195,13 @@ public abstract class SiteBuilder {
 
                     String html = processIncludesDirectives(readFile(file));
 
-                    final int count = (int) path.toString().chars().filter(ch -> ch == '/').count() - 1;
-                    html = fillTemplate(html, "relativeToRoot", buildRelative(count));
-
                     // check if there is a Page for this page
                     final String filename = path.getFileName().toString();
                     final String pageName = filename.substring(0, filename.lastIndexOf("."));
-                    if (allPagesMap.containsKey(pageName)) {
-                        final Page page = allPagesMap.get(pageName);
-                        for (final Map.Entry<String, String> entry : page.getValues().entrySet()) {
-                            html = fillTemplate(html, entry.getKey(), entry.getValue());
-                        }
+                    final Page page = allPagesMap.get(pageName);
+
+                    for (final Map.Entry<String, String> entry : getPageProperties(page, path).entrySet()) {
+                        html = fillTemplate(html, entry.getKey(), entry.getValue());
                     }
 
                     path.toFile().getParentFile().mkdirs();
@@ -202,6 +210,18 @@ public abstract class SiteBuilder {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    protected Map<String, String> getPageProperties(Page page, Path pagePath) {
+        Map<String, String> properties = new HashMap<>();
+
+        if (page != null) {
+            properties.putAll(page.getProperties());
+        }
+
+        properties.put("path", createRelativePath(pagePath));
+
+        return properties;
     }
 
     private void processStaticResources() {
@@ -281,6 +301,12 @@ public abstract class SiteBuilder {
 
     private static Path createRelativePath(final Path basePath, final Path file) {
         return new File(OUTPUT_DIR, basePath.relativize(file).toString()).toPath();
+    }
+
+    // strip out the 'output/' from the path
+    private static String createRelativePath(final Path path) {
+        String pathStr = path.toString();
+        return pathStr.substring(pathStr.indexOf(OUTPUT_PATH+"/") + OUTPUT_PATH.length() + 1);
     }
 
     private static void copyFile(final Path basePath, final Path file) {
