@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.jonathangiles.tools</groupId>
   <artifactId>sitebuilder</artifactId>
-  <version>0.0.3</version>
+  <version>0.0.4</version>
 
   <name>Site Builder Template Tool</name>
   <description>A simple templating tool useful for building static websites.</description>
