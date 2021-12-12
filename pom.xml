@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.jonathangiles.tools</groupId>
   <artifactId>sitebuilder</artifactId>
-  <version>0.0.2</version>
+  <version>0.0.3</version>
 
   <name>Site Builder Template Tool</name>
   <description>A simple templating tool useful for building static websites.</description>
@@ -68,6 +68,18 @@
       <groupId>com.fasterxml.jackson.datatype</groupId>
       <artifactId>jackson-datatype-jsr310</artifactId>
       <version>2.10.1</version>
+    </dependency>
+
+    <!-- Support for markdown -->
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark</artifactId>
+      <version>0.18.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark-ext-yaml-front-matter</artifactId>
+      <version>0.18.1</version>
     </dependency>
   </dependencies>
 

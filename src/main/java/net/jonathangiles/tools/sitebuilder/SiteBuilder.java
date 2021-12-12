@@ -6,31 +6,35 @@ import net.jonathangiles.tools.sitebuilder.models.PostStatus;
 import net.jonathangiles.tools.sitebuilder.models.Page;
 import net.jonathangiles.tools.sitebuilder.models.Post;
 
+import static net.jonathangiles.tools.sitebuilder.util.SitePaths.*;
+
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import net.jonathangiles.tools.sitebuilder.util.SitePaths;
+import org.commonmark.ext.front.matter.YamlFrontMatterExtension;
+import org.commonmark.ext.front.matter.YamlFrontMatterVisitor;
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 /**
  * Reads in all index.xml files and creates a static index.html file from it and the header and footer files.
  */
 public abstract class SiteBuilder {
-    private static final String OUTPUT_PATH = "output";
-    private static final File OUTPUT_DIR = new File(OUTPUT_PATH);
+    public static final String OUTPUT_PATH = "output";
+    public static final File OUTPUT_DIR = new File(OUTPUT_PATH);
 
     private final ClassLoader loader;
 
@@ -44,8 +48,14 @@ public abstract class SiteBuilder {
     // A map of page (file) name to Page, for all the other metadata
     private Map<String, Page> allPagesMap;
 
+    private Function<PostPathRequest, PostPath> postPathFunction = SitePaths.createSlugDirStructure("posts/", true);
+
     protected SiteBuilder() {
         loader = Thread.currentThread().getContextClassLoader();
+    }
+
+    public void setPostPathFunction(Function<PostPathRequest, PostPath> postPathFunction) {
+        this.postPathFunction = postPathFunction;
     }
 
     public void run() {
@@ -121,30 +131,52 @@ public abstract class SiteBuilder {
 
     private void processPosts() {
         try {
-            final Path postsPath = Paths.get(loader.getResource("www/posts").getPath());
+            final Path postsPath = getPath("www/posts", loader);
             //Files.walk(new File(WORDPRESS_OUTPUT_DIR, "posts").toPath())
             Files.walk(postsPath)
                     .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().contains("index.xml"))
-                    .forEach(indexXmlFile -> processPost(postsPath, indexXmlFile));
+                    .filter(path -> {
+                        // we process any file that ends with .xml or .md
+                        String filename = path.getFileName().toString();
+                        return filename.endsWith(".xml") || filename.endsWith(".md");
+                    })
+                    .forEach(postFile -> processPost(postsPath, postFile));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void processPost(final Path basePath, final Path indexXmlFile) {
+    private void processPost(final Path basePath, final Path postFile) {
+        final String filename = postFile.getFileName().toString();
         try {
-            final ObjectMapper xmlMapper = new XmlMapper()
-                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                 .registerModule(new JavaTimeModule());
-            final Post post = xmlMapper.readValue(indexXmlFile.toFile(), Post.class);
+            Post post = null;
+
+            if (filename.endsWith(".xml")) {
+                final ObjectMapper xmlMapper = new XmlMapper()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                        .registerModule(new JavaTimeModule());
+                post = xmlMapper.readValue(postFile.toFile(), Post.class);
+            } else if (filename.endsWith(".md")) {
+                Parser parser = Parser.builder().extensions(Arrays.asList(YamlFrontMatterExtension.create())).build();
+                Node document = parser.parseReader(new FileReader(postFile.toFile()));
+
+                YamlFrontMatterVisitor frontMatter = new YamlFrontMatterVisitor();
+                document.accept(frontMatter);
+
+                HtmlRenderer renderer = HtmlRenderer.builder().build();
+
+                post = new Post();
+                post.setContent(renderer.render(document));
+                post.setSlug(frontMatter.getData().get("slug").get(0));
+                post.setTitle(frontMatter.getData().get("title").get(0));
+                post.setDate(LocalDate.parse(frontMatter.getData().get("date").get(0)));
+            } else {
+                throw new RuntimeException("Cannot process post file: " + postFile);
+            }
 
             if (post.getStatus() == PostStatus.DRAFT) {
                 return;
             }
-
-            final Path relativePath = createRelativePath(basePath.getParent(), indexXmlFile);
-            post.setRelativePath(relativePath);
 
             System.out.println("Processing post: " + post.getSlug());
 
@@ -158,12 +190,17 @@ public abstract class SiteBuilder {
 
             String html = templates.get("post");
 
+            PostPath postPath = postPathFunction.apply(new PostPathRequest(post, postFile, basePath));
+            String relativePath = postPath.getRelativePath();
+            post.setRelativePath(relativePath);
+
             for (Map.Entry<String, String> property : getPostProperties(post).entrySet()) {
                 html = fillTemplate(html, property.getKey(), property.getValue());
             }
 
-            relativePath.toFile().getParentFile().mkdirs();
-            writeToFile(Paths.get(relativePath.getParent().toString(), "index.html"), html);
+            Path postOutputPath = postPath.getFullOutputPath();
+            postOutputPath.getParent().toFile().mkdirs();
+            writeToFile(postOutputPath, html);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -175,7 +212,7 @@ public abstract class SiteBuilder {
         properties.put("title", post.getTitle());
         properties.put("content", post.getContent());
         properties.put("date", post.getDate().toString());
-        properties.put("path", createRelativePath(post.getRelativePath().getParent()));
+        properties.put("path", post.getRelativePath());
 
         return properties;
     }
@@ -186,7 +223,7 @@ public abstract class SiteBuilder {
 
     private void processPages() {
         try {
-            final Path pagesPath = Paths.get(loader.getResource("www/pages").getPath());
+            final Path pagesPath = getPath("www/pages", loader);
             Files.walk(pagesPath)
                 .filter(Files::isRegularFile)
                 .forEach(file -> {
@@ -226,7 +263,7 @@ public abstract class SiteBuilder {
 
     private void processStaticResources() {
         try {
-            final Path staticPath = Paths.get(loader.getResource("www/static").getPath());
+            final Path staticPath = getPath("www/static", loader);
             Files.walk(staticPath)
                 .filter(Files::isRegularFile)
                 .forEach(file -> copyFile(staticPath, file));
@@ -240,7 +277,7 @@ public abstract class SiteBuilder {
     // --------------------------------------------------------------------------
 
     private void loadTemplates() {
-        final Path templatesPath = Paths.get(loader.getResource("www/templates").getPath());
+        final Path templatesPath = getPath("www/templates", loader);
 
         try {
             Files.walk(templatesPath)
@@ -291,22 +328,17 @@ public abstract class SiteBuilder {
     // File utilities
     // --------------------------------------------------------------------------
 
+    private static Path getPath(String path, ClassLoader loader) {
+//        final Path templatesPath = Paths.get(loader.getResource("www/templates").getPath());
+        return new File(loader.getResource(path).getFile()).toPath();
+    }
+
     private static void writeToFile(final Path file, final String content) {
         try {
             Files.write(file, content.getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private static Path createRelativePath(final Path basePath, final Path file) {
-        return new File(OUTPUT_DIR, basePath.relativize(file).toString()).toPath();
-    }
-
-    // strip out the 'output/' from the path
-    private static String createRelativePath(final Path path) {
-        String pathStr = path.toString();
-        return pathStr.substring(pathStr.indexOf(OUTPUT_PATH+"/") + OUTPUT_PATH.length() + 1);
     }
 
     private static void copyFile(final Path basePath, final Path file) {
@@ -335,11 +367,11 @@ public abstract class SiteBuilder {
     // Misc utilities
     // --------------------------------------------------------------------------
 
-    private static String buildRelative(final int count) {
-        String s = "";
-        for (int i = 0; i < count; i++) {
-            s += "../";
-        }
-        return s;
-    }
+//    private static String buildRelative(final int count) {
+//        String s = "";
+//        for (int i = 0; i < count; i++) {
+//            s += "../";
+//        }
+//        return s;
+//    }
 }

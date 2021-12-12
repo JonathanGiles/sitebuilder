@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlCData;
 
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Objects;
 
@@ -35,45 +34,77 @@ public class Post {
     private String tags;
 
     @JsonIgnore
-    private Path relativePath;
+    private String relativePath;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
 
     public String getTitle() {
         return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getContent() {
         return content;
     }
 
+    public void setContent(String content) {
+        this.content = content;
+    }
+
     public LocalDate getDate() {
         return date;
     }
 
-    public PostStatus getStatus() {
-        return status;
+    public void setDate(LocalDate date) {
+        this.date = date;
     }
 
     public String getSlug() {
         return slug;
     }
 
-    public int getId() {
-        return id;
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
+    public PostStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(PostStatus status) {
+        this.status = status;
     }
 
     public String getCategories() {
         return categories;
     }
 
+    public void setCategories(String categories) {
+        this.categories = categories;
+    }
+
     public String getTags() {
         return tags;
     }
 
-    public Path getRelativePath() {
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public String getRelativePath() {
         return relativePath;
     }
 
-    public void setRelativePath(final Path relativePath) {
+    public void setRelativePath(String relativePath) {
         this.relativePath = relativePath;
     }
 
