@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.jonathangiles.tools</groupId>
   <artifactId>sitebuilder</artifactId>
-  <version>0.0.4</version>
+  <version>0.0.5</version>
 
   <name>Site Builder Template Tool</name>
   <description>A simple templating tool useful for building static websites.</description>
@@ -74,12 +74,12 @@
     <dependency>
       <groupId>org.commonmark</groupId>
       <artifactId>commonmark</artifactId>
-      <version>0.18.1</version>
+      <version>0.21.0</version>
     </dependency>
     <dependency>
       <groupId>org.commonmark</groupId>
       <artifactId>commonmark-ext-yaml-front-matter</artifactId>
-      <version>0.18.1</version>
+      <version>0.21.0</version>
     </dependency>
   </dependencies>
 
@@ -88,7 +88,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.3.1</version>
+        <version>3.6.0</version>
+        <configuration>
+          <doclint>all,-missing</doclint>
+        </configuration>
         <executions>
           <execution>
             <id>attach-javadoc</id>
@@ -101,7 +104,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-source</id>
@@ -114,7 +117,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>3.11.0</version>
         <configuration>
           <source>9</source>
           <target>9</target>
@@ -131,7 +134,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>3.0.1</version>
+            <version>3.1.0</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
@@ -145,25 +148,13 @@
           <plugin>
             <groupId>org.sonatype.plugins</groupId>
             <artifactId>nexus-staging-maven-plugin</artifactId>
-            <version>1.6.8</version>
+            <version>1.6.13</version>
             <extensions>true</extensions>
             <configuration>
               <serverId>ossrh</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
               <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
-            <dependencies>
-              <!--
-                TODO:
-                  Remove after OSSRH-66257, NEXUS-26993 are fixed,
-                  possibly via https://github.com/sonatype/nexus-maven-plugins/pull/91
-              -->
-              <dependency>
-                <groupId>com.thoughtworks.xstream</groupId>
-                <artifactId>xstream</artifactId>
-                <version>1.4.20</version>
-              </dependency>
-            </dependencies>
           </plugin>
         </plugins>
       </build>

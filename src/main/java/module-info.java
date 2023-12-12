@@ -10,4 +10,6 @@ module net.jonathangiles.tools.sitebuilder {
 
     exports net.jonathangiles.tools.sitebuilder;
     exports net.jonathangiles.tools.sitebuilder.models;
+    exports net.jonathangiles.tools.sitebuilder.models.input;
+    exports net.jonathangiles.tools.sitebuilder.util;
 }

@@ -2,7 +2,7 @@ package net.jonathangiles.tools.sitebuilder.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public enum PostStatus {
+public enum SiteContentStatus {
 
     @JsonProperty("publish")
     PUBLISH,
